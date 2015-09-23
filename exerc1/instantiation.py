@@ -162,9 +162,14 @@ class Node(object):
 		return 1 + max(depth_positive, depth_negative)
 
 	def nodes_below(self):
-		nodes_positive = self._positive.nodes_below() if self._positive is not None else []
-		nodes_negative = self._negative.nodes_below() if self._negative is not None else []
-		return [self] + nodes_negative + nodes_positive
+		try:
+			nodes_positive = self._positive.nodes_below() if self._positive is not None else []
+			nodes_negative = self._negative.nodes_below() if self._negative is not None else []
+			return [self] + nodes_negative + nodes_positive
+		except RuntimeError:
+			z = 0
+		except TypeError:
+			z = 0
 
 	def terminals_below(self):
 		terminals_positive = self._positive.terminals_below() if self._positive is not None else []
@@ -249,7 +254,8 @@ class Tree(object):
 		return self.fitness
 
 	def mutate(self):
-		random_node = np.random.choice(self.nodes)
+		all_nodes_of_tree = self._root.nodes_below()
+		random_node = np.random.choice(all_nodes_of_tree)
 		node_type = Actions if random_node.test in Actions else Tests
 		new_value = np.random.choice(node_type.__members__.values())
 		random_node._test = new_value
@@ -259,29 +265,34 @@ class Tree(object):
 		"""
 		Performs crossover between two trees a and b.
 		"""
-		node_a = np.random.choice(a.nodes)  # randomly gets a node in the A tree
-		node_b = np.random.choice(b.nodes)  # randomly gets a node in the B tree
+		# TODO wrong! must fix!
 
-		node_a_father = node_a.father  # father of A node
-		node_b_father = node_b.father  # father of B node
+		some_a_nodes = a._root.nodes_below()
+		some_b_nodes = b._root.nodes_below()
+
+		node_a = np.random.choice(some_a_nodes)  # randomly gets a node in the A tree
+		node_b = np.random.choice(some_b_nodes)  # randomly gets a node in the B tree
+
+		node_a_father = node_a._father  # father of A node
+		node_b_father = node_b._father  # father of B node
 
 		# if node A has a father, and node A is
 		# allocated in the positive pointer in its father
-		if node_a_father is not None and node_a_father.positive is node_a:
-			node_a_father.positive = node_b
-		elif node_a.father is not None:
-			node_a_father.negative = node_b
+		if node_a_father is not None and node_a_father._positive is node_a:
+			node_a_father._positive = node_b
+		elif node_a_father is not None:
+			node_a_father._negative = node_b
 
-		node_b.father = node_a_father
+		node_b._father = node_a_father
 
 		# if node B has a father, and node B is
 		# allocated in the positive pointer in its father
-		if node_b_father is not None and node_b_father.positive is node_b:
-			node_b_father.positive = node_a
-		elif node_b.father is not None:
-			node_b_father.negative = node_a
+		if node_b_father is not None and node_b_father._positive is node_b:
+			node_b_father._positive = node_a
+		elif node_b_father is not None:
+			node_b_father._negative = node_a
 
-		node_a.father = node_b_father
+		node_a._father = node_b_father
 
 	@property
 	def nodes(self):

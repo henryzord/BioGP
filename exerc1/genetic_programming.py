@@ -116,7 +116,7 @@ class GeneticProgrammer:
 			population = elite + not_elite
 			iteration += 1
 
-		return best
+		return sorted(population, key=lambda x: x.fitness, reverse=True)[0]
 
 	@staticmethod
 	def calculate_fitness(population, level):
