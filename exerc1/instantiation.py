@@ -1,3 +1,5 @@
+import copy
+
 __author__ = 'Henry'
 
 from enum import Enum
@@ -103,7 +105,7 @@ class Node(object):
 	_negative = None
 	_father = None
 
-	def __init__(self, value, father, positive=None, negative=None):
+	def __init__(self, value, father=None, positive=None, negative=None):
 		self._test = value
 		self._father = father
 		self._positive = positive
@@ -114,6 +116,14 @@ class Node(object):
 
 		if negative is not None:
 			self._negative.father = self
+
+	@property
+	def test(self):
+		return self._test
+
+	@test.setter
+	def test(self, value):
+		self._test = value
 
 	@property
 	def father(self):
@@ -177,12 +187,14 @@ class Node(object):
 
 	@next_free.setter
 	def next_free(self, value):
-		if self.positive is None:
-			self.positive = value
-		elif self.negative is None:
-			self.negative = value
+		if self._positive is None:
+			self._positive = value
+		elif self._negative is None:
+			self._negative = value
 		else:
 			raise NameError('No free children!')
+
+		value.father = self
 
 	@property
 	def test(self):
@@ -236,31 +248,44 @@ class Tree(object):
 		self.fitness = float(summation) / len(self._level)
 		return self.fitness
 
+	def mutate(self):
+		random_node = np.random.choice(self.nodes)
+		node_type = Actions if random_node.test in Actions else Tests
+		new_value = np.random.choice(node_type.__members__.values())
+		random_node._test = new_value
+
 	@staticmethod
 	def crossover(a, b):
-		a.plot()
+		"""
+		Performs crossover between two trees a and b.
+		"""
+		node_a = np.random.choice(a.nodes)  # randomly gets a node in the A tree
+		node_b = np.random.choice(b.nodes)  # randomly gets a node in the B tree
 
-		nodes_a = a.nodes
-		nodes_b = b.nodes
+		node_a_father = node_a.father  # father of A node
+		node_b_father = node_b.father  # father of B node
 
-		intersection_a = np.random.choice(nodes_a)
-		intersection_b = np.random.choice(nodes_b)
+		# if node A has a father, and node A is
+		# allocated in the positive pointer in its father
+		if node_a_father is not None and node_a_father.positive is node_a:
+			node_a_father.positive = node_b
+		elif node_a.father is not None:
+			node_a_father.negative = node_b
 
-		# intersection_b
-		# intersection_a = intersection_b
-		# intersection_b = buffer
+		node_b.father = node_a_father
 
-		a.plot()
-		plt.show()
-		z = 0
+		# if node B has a father, and node B is
+		# allocated in the positive pointer in its father
+		if node_b_father is not None and node_b_father.positive is node_b:
+			node_b_father.positive = node_a
+		elif node_b.father is not None:
+			node_b_father.negative = node_a
+
+		node_a.father = node_b_father
 
 	@property
 	def nodes(self):
 		return self._root.nodes_below()
-
-	@nodes.setter
-	def nodes(self):
-		raise NameError('not implemented yet!')
 
 	@property
 	def depth(self):

@@ -66,7 +66,6 @@ class GeneticProgrammer:
 				draw = Node(np.random.choice(tests + actions))
 				try:
 					tree_tests[0].next_free = draw
-					tree_tests[0].father = draw
 					if draw.is_internal:
 						tree_tests.append(draw)
 				except NameError:
@@ -93,7 +92,8 @@ class GeneticProgrammer:
 		while iteration < max_iter:
 			population = sorted(population, key=lambda x: x.fitness, reverse=True)
 			elite_factor = int(round(self._elitism_rate * self._n_individuals))
-			zelite = population[:elite_factor] if elite_factor > 0 else np.ndarray([])
+			elite = population[:elite_factor] if elite_factor > 0 else np.ndarray([])
+			not_elite = population[elite_factor:] if elite_factor > 0 else population
 			do_crossover = np.random.choice([True, False], p=[self._crossover_prob, 1. - self._crossover_prob])
 			do_mutation = np.random.choice([True, False], p=[self._mutation_prob, 1. - self._mutation_prob])
 			if do_crossover:
@@ -108,10 +108,12 @@ class GeneticProgrammer:
 					Tree.crossover(*fathers)
 
 			if do_mutation:
-				raise NameError('implement me!')
+				n_to_mutate = int(round(self._mutation_rate * len(not_elite)))
+				to_mutate = np.random.choice(not_elite, size=n_to_mutate)
+				for individual in to_mutate:
+					individual.mutate()
 
-
-
+			population = elite + not_elite
 			iteration += 1
 
 		return best
