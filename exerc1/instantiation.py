@@ -8,19 +8,35 @@ from matplotlib import pyplot as plt
 import itertools
 import numpy as np
 
+
 class Adversities(Enum):
+	"""
+	Possible adversities that the player may find in the level.
+	"""
 	plain = 'P'
 	hole = 'H'
 	enemy = 'E'
 
 
 class Actions(Enum):
+	"""
+	Possible actions the player may take upon the adversities.
+	"""
 	move_right = 'R'
 	jump = 'J'
 	fire = 'F'
 
 	@staticmethod
 	def run(action, tile):
+		"""
+		Given an action, verifies if it is an adequate behaviour
+		to perform upon encountering the given tile.
+
+		:param action: An member of the Actions class.
+		:param tile: The tile to behaviour upon.
+		:return: True if the action is adequate to attack the tile,
+			False otherwise.
+		"""
 		if action == Actions.move_right:
 			return Actions.__move_right__(tile)
 		elif action == Actions.jump:
@@ -31,16 +47,34 @@ class Actions(Enum):
 
 	@staticmethod
 	def __move_right__(tile):
+		"""
+		Performs the action to move right.
+		:param tile: A given tile to behave upon.
+		:return: True if moving right is an appropriate action
+			upon encountering the given tile.
+		"""
 		if Tests.is_enemy_func(tile) or Tests.is_hole_func(tile):
 			return False
 		return True
 
 	@staticmethod
 	def __jump__(tile):
+		"""
+		Jumps.
+		:param tile: A given tile to behave upon.
+		:return: True, because Mario's nickname is Jumpman
+			and you don't mess with someone like him.
+		"""
 		return True
 
 	@staticmethod
 	def __fire__(tile):
+		"""
+		Fires a fireball.
+		:param tile: A given tile to behave upon.
+		:return: True if firing is an appropriate action
+			upon encountering the given tile.
+		"""
 		if Tests.is_hole_func(tile):
 			return False
 		return True
@@ -58,6 +92,13 @@ class Tests(Enum):
 
 	@staticmethod
 	def run(test, tile):
+		"""
+		Given a test, performs a test given a tile.
+
+		:param test: An member of the Tests class.
+		:param tile: The tile to test upon.
+		:return: The result of the test over the given tile.
+		"""
 		if test == Tests.is_enemy:
 			return Tests.is_enemy_func(tile)
 		elif test == Tests.is_hole:
@@ -106,6 +147,17 @@ class Node(object):
 	_father = None
 
 	def __init__(self, value, father=None, positive=None, negative=None):
+		"""
+		Initializes a Node object.
+
+		:param value: Value of the node. May be a test or an action.
+		:param father: The father of this node, if any. Otherwise is a root.
+		:param positive: Only test nodes have branches. This branch corresponds
+			to the positive outcome of the test of this node, if it is a Test).
+		:param negative: Only test nodes have branches. This branch corresponds
+			to the negative outcome of the test of this node, if it is a Test).
+		:return:
+		"""
 		self._test = value
 		self._father = father
 		self._positive = positive
@@ -150,15 +202,19 @@ class Node(object):
 		self._negative = value
 
 	@property
-	def is_terminal(self):
+	def is_action(self):
 		return self._test in Actions
 
 	@property
-	def is_internal(self):
+	def is_test(self):
 		return self._test in Tests
 
 	@property
 	def next_free(self):
+		"""
+		:return: Next free branch of this node. Raises an exception
+			if none.
+		"""
 		if self.positive is None:
 			return self._positive
 		elif self.negative is None:
@@ -168,6 +224,10 @@ class Node(object):
 
 	@next_free.setter
 	def next_free(self, value):
+		"""
+		:return: Sets the next free branch of this node. Raises an exception
+			if none.
+		"""
 		if self._positive is None:
 			self._positive = value
 		elif self._negative is None:
@@ -181,7 +241,14 @@ class Node(object):
 		return str(self.test)
 
 	def behave(self, tile):
-		if self.is_terminal:
+		"""
+		Behaves upon a given tile.
+		:param tile: Any tile described in the Adversities class.
+		:return: Positive if this node and all of its
+			dependent nodes respond adequately to the
+			given tile. False otherwise.
+		"""
+		if self.is_action:
 			return Actions.run(self._test, tile)
 		else:
 			if Tests.run(self._test, tile):
@@ -198,19 +265,28 @@ class Node(object):
 		return 1 + max(depth_positive, depth_negative)
 
 	def nodes_below(self):
+		"""
+		:return: All nodes (including itself) below this node.
+		"""
 		nodes_positive = self._positive.nodes_below() if self._positive is not None else []
 		nodes_negative = self._negative.nodes_below() if self._negative is not None else []
 		return [self] + nodes_negative + nodes_positive
 
 	def terminals_below(self):
+		"""
+		:return: All terminals below this node, or itself if this node is a Terminal.
+		"""
 		terminals_positive = self._positive.terminals_below() if self._positive is not None else []
 		terminals_negative = self._negative.terminals_below() if self._negative is not None else []
-		return [self] if self.is_terminal else [] + terminals_negative + terminals_positive
+		return [self] if self.is_action else [] + terminals_negative + terminals_positive
 
 	def internals_below(self):
+		"""
+		:return: All internals (including itself, if a Test) below this node.
+		"""
 		internals_positive = self._positive.internals_below() if self._positive is not None else []
 		internals_negative = self._negative.internals_below() if self._negative is not None else []
-		return [self] if self.is_internal else [] + internals_negative + internals_positive
+		return [self] if self.is_test else [] + internals_negative + internals_positive
 
 
 class Tree(object):
@@ -228,10 +304,28 @@ class Tree(object):
 
 		self.calculate_fitness()
 
+	def __str__(self):
+		return str(self.fitness)
+
+	@property
+	def nodes(self):
+		return self._root.nodes_below()
+
+	@property
+	def depth(self):
+		return self._root.depth_below()
+
+	@property
+	def fitness(self):
+		return self._fitness
+
+	@fitness.setter
+	def fitness(self, value):
+		self._fitness = value
+
 	def calculate_fitness(self):
 		"""
-		Calculates the fitness of this individual, setting its attribute
-		and also returning the value.
+		Calculates the fitness of this individual, setting its attribute.
 		"""
 		summation = 0
 		for tile in self._level:
@@ -244,6 +338,9 @@ class Tree(object):
 		# z = 0
 
 	def mutate(self):
+		"""
+		Mutates this tree.
+		"""
 		all_nodes_of_tree = self._root.nodes_below()
 		random_node = np.random.choice(all_nodes_of_tree)
 		node_type = Actions if random_node.test in Actions else Tests
@@ -289,26 +386,11 @@ class Tree(object):
 		a.calculate_fitness()
 		b.calculate_fitness()
 
-	@property
-	def nodes(self):
-		return self._root.nodes_below()
-
-	@property
-	def depth(self):
-		return self._root.depth_below()
-
-	@property
-	def fitness(self):
-		return self._fitness
-
-	@fitness.setter
-	def fitness(self, value):
-		self._fitness = value
-
-	def __str__(self):
-		return str(self.fitness)
-
 	def plot(self):
+		"""
+		Plots this tree using matplotlib and networkx.
+		:return:
+		"""
 		plt.figure()
 
 		all_nodes = self._root.nodes_below()
@@ -319,7 +401,7 @@ class Tree(object):
 		edges = []
 		for i, (alias, node) in enumerate(itertools.izip(aliases, all_nodes)):
 			G.add_node(i)
-			if node.is_internal:
+			if node.is_test:
 				positive_pair = (i, all_nodes.index(node.positive))
 				negative_pair = (i, all_nodes.index(node.negative))
 				edges += [(positive_pair, 'yes'), (negative_pair, 'no')]

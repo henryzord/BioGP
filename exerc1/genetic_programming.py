@@ -3,8 +3,7 @@
 """
 This file stands for the genetic programming class
 that is used to execute the algorithm itself. It
-contains genetic operators (such as crossover and
-mutation).
+contains genetic operators (such as crossover and mutation).
 """
 
 from instantiation import *
@@ -72,7 +71,7 @@ class GeneticProgrammer:
 					draw = Node(np.random.choice(actions))
 				try:
 					tree_tests[0].next_free = draw
-					if draw.is_internal:
+					if draw.is_test:
 						tree_tests.append(draw)
 				except NameError:
 					tree_tests.remove(tree_tests[0])  # tree_tests[0] has no free branches
@@ -116,12 +115,19 @@ class GeneticProgrammer:
 		return sorted(population, key=lambda x: x.fitness, reverse=True)[0]  # returns the fittest individual
 
 	@staticmethod
-	def tournament(population, tournament_size):
+	def tournament(sample, tournament_size):
+		"""
+		Performs a tournament based on the sample given and a tournament size.
+
+		:param sample: The sample to participate in the tournament. Every individual will
+			be selected sooner or later.
+		:param tournament_size: The size of the tournament.
+		"""
 		taken = []
-		while len(taken) < len(population):
+		while len(taken) < len(sample):
 			fathers = []
 			for i in range(2):  # two parents for each crossover
-				tournament = np.random.choice(population, size=tournament_size)
+				tournament = np.random.choice(sample, size=tournament_size)
 				father = sorted(tournament, key=lambda x: x.fitness, reverse=True)[0]  # fittest individual is the parent
 				taken += [father]
 				fathers += [father]
@@ -130,9 +136,10 @@ class GeneticProgrammer:
 	@staticmethod
 	def mutation(mutation_rate, sample):
 		"""
-		Performs mutation in the not-elite population.
+		Performs mutation in the given sample.
+
 		:param mutation_rate: The rate of the sample to mutate.
-		:param sample: The not-elite subpopulation.
+		:param sample: The individuals to suffer mutation.
 		"""
 
 		n_to_mutate = int(round(mutation_rate * len(sample)))
