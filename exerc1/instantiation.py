@@ -133,17 +133,21 @@ class Node(object):
 	def father(self, value):
 		self._father = value
 
-	def __str__(self):
-		return str(self.test)
+	@property
+	def positive(self):
+		return self._positive
 
-	def behave(self, tile):
-		if self.is_terminal:
-			return Actions.run(self._test, tile)
-		else:
-			if Tests.run(self._test, tile):
-				return self.positive.behave(tile)
-			else:
-				return self.negative.behave(tile)
+	@positive.setter
+	def positive(self, value):
+		self._positive = value
+
+	@property
+	def negative(self):
+		return self._negative
+
+	@negative.setter
+	def negative(self, value):
+		self._negative = value
 
 	@property
 	def is_terminal(self):
@@ -152,34 +156,6 @@ class Node(object):
 	@property
 	def is_internal(self):
 		return self._test in Tests
-
-	def depth_below(self):
-		"""
-		:return: Depth of the tree below this node.
-		"""
-		depth_positive = self._positive.depth_below() if self._positive is not None else 0
-		depth_negative = self._negative.depth_below() if self._negative is not None else 0
-		return 1 + max(depth_positive, depth_negative)
-
-	def nodes_below(self):
-		try:
-			nodes_positive = self._positive.nodes_below() if self._positive is not None else []
-			nodes_negative = self._negative.nodes_below() if self._negative is not None else []
-			return [self] + nodes_negative + nodes_positive
-		except RuntimeError:
-			z = 0
-		except TypeError:
-			z = 0
-
-	def terminals_below(self):
-		terminals_positive = self._positive.terminals_below() if self._positive is not None else []
-		terminals_negative = self._negative.terminals_below() if self._negative is not None else []
-		return [self] if self.is_terminal else [] + terminals_negative + terminals_positive
-
-	def internals_below(self):
-		internals_positive = self._positive.internals_below() if self._positive is not None else []
-		internals_negative = self._negative.internals_below() if self._negative is not None else []
-		return [self] if self.is_internal else [] + internals_negative + internals_positive
 
 	@property
 	def next_free(self):
@@ -201,25 +177,40 @@ class Node(object):
 
 		value.father = self
 
-	@property
-	def test(self):
-		return self._test
+	def __str__(self):
+		return str(self.test)
 
-	@property
-	def positive(self):
-		return self._positive
+	def behave(self, tile):
+		if self.is_terminal:
+			return Actions.run(self._test, tile)
+		else:
+			if Tests.run(self._test, tile):
+				return self.positive.behave(tile)
+			else:
+				return self.negative.behave(tile)
 
-	@property
-	def negative(self):
-		return self._negative
+	def depth_below(self):
+		"""
+		:return: Depth of the tree below this node.
+		"""
+		depth_positive = self._positive.depth_below() if self._positive is not None else 0
+		depth_negative = self._negative.depth_below() if self._negative is not None else 0
+		return 1 + max(depth_positive, depth_negative)
 
-	@positive.setter
-	def positive(self, value):
-		self._positive = value
+	def nodes_below(self):
+		nodes_positive = self._positive.nodes_below() if self._positive is not None else []
+		nodes_negative = self._negative.nodes_below() if self._negative is not None else []
+		return [self] + nodes_negative + nodes_positive
 
-	@negative.setter
-	def negative(self, value):
-		self._negative = value
+	def terminals_below(self):
+		terminals_positive = self._positive.terminals_below() if self._positive is not None else []
+		terminals_negative = self._negative.terminals_below() if self._negative is not None else []
+		return [self] if self.is_terminal else [] + terminals_negative + terminals_positive
+
+	def internals_below(self):
+		internals_positive = self._positive.internals_below() if self._positive is not None else []
+		internals_negative = self._negative.internals_below() if self._negative is not None else []
+		return [self] if self.is_internal else [] + internals_negative + internals_positive
 
 
 class Tree(object):
@@ -235,9 +226,9 @@ class Tree(object):
 		self._root = root
 		self._level = level
 
-		self.__calculate_fitness__()
+		self.calculate_fitness()
 
-	def __calculate_fitness__(self):
+	def calculate_fitness(self):
 		"""
 		Calculates the fitness of this individual, setting its attribute
 		and also returning the value.
@@ -249,9 +240,8 @@ class Tree(object):
 				break  # fails to solve the problem
 			else:
 				summation += result
-
-		self.fitness = float(summation) / len(self._level)
-		return self.fitness
+		self._fitness = float(summation) / len(self._level)
+		# z = 0
 
 	def mutate(self):
 		all_nodes_of_tree = self._root.nodes_below()
@@ -260,39 +250,44 @@ class Tree(object):
 		new_value = np.random.choice(node_type.__members__.values())
 		random_node._test = new_value
 
+		self.calculate_fitness()
+
 	@staticmethod
 	def crossover(a, b):
 		"""
 		Performs crossover between two trees a and b.
 		"""
-		# TODO wrong! must fix!
+		node_a = np.random.choice(a._root.nodes_below())  # randomly gets a node in the A tree
+		node_b = np.random.choice(b._root.nodes_below())  # randomly gets a node in the B tree
 
-		some_a_nodes = a._root.nodes_below()
-		some_b_nodes = b._root.nodes_below()
+		# prevents the root from being selected
+		while node_a.father is None:
+			node_a = np.random.choice(a._root.nodes_below())  # randomly gets a node in the A tree
 
-		node_a = np.random.choice(some_a_nodes)  # randomly gets a node in the A tree
-		node_b = np.random.choice(some_b_nodes)  # randomly gets a node in the B tree
+		while node_b.father is None:
+			node_b = np.random.choice(b._root.nodes_below())  # randomly gets a node in the B tree
 
 		node_a_father = node_a._father  # father of A node
 		node_b_father = node_b._father  # father of B node
 
 		# if node A has a father, and node A is
 		# allocated in the positive pointer in its father
-		if node_a_father is not None and node_a_father._positive is node_a:
+		if node_a_father._positive is node_a:
 			node_a_father._positive = node_b
-		elif node_a_father is not None:
+		else:
 			node_a_father._negative = node_b
 
-		node_b._father = node_a_father
-
-		# if node B has a father, and node B is
-		# allocated in the positive pointer in its father
-		if node_b_father is not None and node_b_father._positive is node_b:
+		if node_b_father._positive is node_b:
 			node_b_father._positive = node_a
-		elif node_b_father is not None:
+		else:
 			node_b_father._negative = node_a
 
+		node_b._father = node_a_father
 		node_a._father = node_b_father
+
+		# recalculates fitness
+		a.calculate_fitness()
+		b.calculate_fitness()
 
 	@property
 	def nodes(self):
@@ -338,4 +333,3 @@ class Tree(object):
 		nx_edge_labels = nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=16)
 		nx.draw(G, pos, labels=node_labels, edge_labels=nx_edge_labels)
 		plt.draw()
-		# plt.show()

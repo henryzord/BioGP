@@ -19,6 +19,7 @@ class GeneticProgrammer:
 	_tournament_size = None
 	_mutation_rate = None
 	_mutation_prob = None
+	_max_initial_height = None
 
 	def __init__(self, **kwargs):
 		"""
@@ -48,6 +49,7 @@ class GeneticProgrammer:
 		self._tournament_size = 5 if 'tournament_size' not in kwargs else kwargs['tournament_size']
 		self._mutation_rate = 0.05 if 'mutation_rate' not in kwargs else kwargs['mutation_rate']
 		self._mutation_prob = 0.03 if 'mutation_prob' not in kwargs else kwargs['mutation_prob']
+		self._max_initial_height = 5 if 'max_initial_height' not in kwargs else max(2, kwargs['max_initial_height'])
 
 	def __sample__(self, level):
 		"""
@@ -63,7 +65,10 @@ class GeneticProgrammer:
 
 			tree_tests = [root]
 			while len(tree_tests) > 0:  # while there are any non-terminal nodes without children
-				draw = Node(np.random.choice(tests + actions))
+				if root.depth_below() + 1 < self._max_initial_height:
+					draw = Node(np.random.choice(tests + actions))
+				else:
+					draw = Node(np.random.choice(actions))
 				try:
 					tree_tests[0].next_free = draw
 					if draw.is_internal:
@@ -105,7 +110,10 @@ class GeneticProgrammer:
 						father = sorted(tournament, key=lambda x: x.fitness, reverse=True)[0]  # fittest individual is the parent
 						taken += [father]
 						fathers += [father]
-					Tree.crossover(*fathers)
+					try:
+						Tree.crossover(*fathers)
+					except RuntimeError:
+						z = 0  # may not perform crossover; maximum spanning tree reached!
 
 			if do_mutation:
 				n_to_mutate = int(round(self._mutation_rate * len(not_elite)))
@@ -129,4 +137,4 @@ class GeneticProgrammer:
 		:rtype: list
 		:return: List of fitness of individuals in the population.
 		"""
-		return map(lambda x: x.__calculate_fitness__(level), population)
+		return map(lambda x: x.calculate_fitness(level), population)
