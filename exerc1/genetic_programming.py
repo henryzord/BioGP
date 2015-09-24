@@ -1,13 +1,12 @@
 # coding=utf-8
-"""genetic_programming.py
 
+"""
 This file stands for the genetic programming class
 that is used to execute the algorithm itself. It
 contains genetic operators (such as crossover and
 mutation).
 """
 
-import numpy as np
 from instantiation import *
 
 
@@ -39,21 +38,23 @@ class GeneticProgrammer:
 		:param mutation_prob: probability of occurring mutation in a given individual. Default value is
 			0.03 (3%).
 
+		:param max_initial_height: Maximum size of initial trees in the population. Defaults to 5.
+
 		:type level: list
 		:param level: The problem to be optimized.
 
 		"""
 		self._n_individuals = max(6, kwargs['n_individuals'])
-		self._elitism_rate = 0.1 if 'elitism_rate' not in kwargs else kwargs['elitism_rate']
-		self._crossover_prob = 0.5 if 'crossover_prob' not in kwargs else kwargs['crossover_prob']
-		self._tournament_size = 5 if 'tournament_size' not in kwargs else kwargs['tournament_size']
-		self._mutation_rate = 0.05 if 'mutation_rate' not in kwargs else kwargs['mutation_rate']
-		self._mutation_prob = 0.03 if 'mutation_prob' not in kwargs else kwargs['mutation_prob']
+		self._elitism_rate = 0.1 if 'elitism_rate' not in kwargs else max(0., kwargs['elitism_rate'])
+		self._crossover_prob = 0.5 if 'crossover_prob' not in kwargs else max(0., kwargs['crossover_prob'])
+		self._tournament_size = 5 if 'tournament_size' not in kwargs else max(2, kwargs['tournament_size'])
+		self._mutation_rate = 0.05 if 'mutation_rate' not in kwargs else max(0., kwargs['mutation_rate'])
+		self._mutation_prob = 0.03 if 'mutation_prob' not in kwargs else max(0., kwargs['mutation_prob'])
 		self._max_initial_height = 5 if 'max_initial_height' not in kwargs else max(2, kwargs['max_initial_height'])
 
 	def __sample__(self, level):
 		"""
-		Generates the initial population of the evolution
+		Generates the initial population of the Genetic Programmer.
 		"""
 		population = np.empty(self._n_individuals, dtype=np.object)
 
@@ -90,51 +91,51 @@ class GeneticProgrammer:
 		"""
 		iteration = 0
 
-		best = None
 		max_iter = kwargs['max_iter']
 		population = self.__sample__(kwargs['level'])
 
 		while iteration < max_iter:
-			population = sorted(population, key=lambda x: x.fitness, reverse=True)
-			elite_factor = int(round(self._elitism_rate * self._n_individuals))
-			elite = population[:elite_factor] if elite_factor > 0 else np.ndarray([])
-			not_elite = population[elite_factor:] if elite_factor > 0 else population
+			population = sorted(population, key=lambda x: x.fitness, reverse=True)  # sorts population
+			n_elite = int(round(self._elitism_rate * self._n_individuals))  # number of elite individuals
+
+			elite = population[:n_elite] if n_elite > 0 else []
+			not_elite = population[n_elite:] if n_elite > 0 else population
+
 			do_crossover = np.random.choice([True, False], p=[self._crossover_prob, 1. - self._crossover_prob])
 			do_mutation = np.random.choice([True, False], p=[self._mutation_prob, 1. - self._mutation_prob])
+
 			if do_crossover:
-				taken = []
-				while len(taken) < len(population):
-					fathers = []
-					for i in range(2):  # two parents for each crossover
-						tournament = np.random.choice(population, size=self._tournament_size)
-						father = sorted(tournament, key=lambda x: x.fitness, reverse=True)[0]  # fittest individual is the parent
-						taken += [father]
-						fathers += [father]
-					try:
-						Tree.crossover(*fathers)
-					except RuntimeError:
-						z = 0  # may not perform crossover; maximum spanning tree reached!
+				GeneticProgrammer.tournament(population, self._tournament_size)
 
 			if do_mutation:
-				n_to_mutate = int(round(self._mutation_rate * len(not_elite)))
-				to_mutate = np.random.choice(not_elite, size=n_to_mutate)
-				for individual in to_mutate:
-					individual.mutate()
+				GeneticProgrammer.mutation(self._mutation_rate, not_elite)
 
 			population = elite + not_elite
 			iteration += 1
 
-		return sorted(population, key=lambda x: x.fitness, reverse=True)[0]
+		return sorted(population, key=lambda x: x.fitness, reverse=True)[0]  # returns the fittest individual
 
 	@staticmethod
-	def calculate_fitness(population, level):
-		"""
-		:param population: A list of Tree objects.
+	def tournament(population, tournament_size):
+		taken = []
+		while len(taken) < len(population):
+			fathers = []
+			for i in range(2):  # two parents for each crossover
+				tournament = np.random.choice(population, size=tournament_size)
+				father = sorted(tournament, key=lambda x: x.fitness, reverse=True)[0]  # fittest individual is the parent
+				taken += [father]
+				fathers += [father]
+			Tree.crossover(*fathers)
 
-		:type level: list
-		:param level: A list of tiles of a given level.
-
-		:rtype: list
-		:return: List of fitness of individuals in the population.
+	@staticmethod
+	def mutation(mutation_rate, sample):
 		"""
-		return map(lambda x: x.calculate_fitness(level), population)
+		Performs mutation in the not-elite population.
+		:param mutation_rate: The rate of the sample to mutate.
+		:param sample: The not-elite subpopulation.
+		"""
+
+		n_to_mutate = int(round(mutation_rate * len(sample)))
+		to_mutate = np.random.choice(sample, size=n_to_mutate)
+		for individual in to_mutate:
+			individual.mutate()
